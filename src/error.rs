@@ -7,7 +7,11 @@ pub enum Error {
     #[from]
     Io(std::io::Error),
     #[from]
-    SerialPort(serialport::Error)
+    SerialPort(serialport::Error),
+    #[from]
+    MpscRecv(std::sync::mpsc::RecvError),
+    #[from]
+    ThreadJoin(Box<dyn std::any::Any + Send>),
 }
 
 impl std::error::Error for Error {}

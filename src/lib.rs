@@ -1,3 +1,8 @@
+use std::{
+    sync::mpsc::{self, Sender},
+    thread,
+};
+
 pub use self::error::{Error, Result};
 
 use clap::Parser;
@@ -47,23 +52,41 @@ pub fn run(args: ArgsOs) -> Result<()> {
         return list_available_ports();
     }
     if let Some(port) = &args.port {
-        let mut sport = open_serial_port(port, &args)?;
+        let sport = open_serial_port(port, &args)?;
         eprintln!("Using serial port: {:#?}", sport);
-        loop {
-            let mut buf = [0; 1024];
-            match sport.read(&mut buf) {
-                Ok(n) => {
-                    let v = &buf[..n];
-                    handle_serial_bytes(v);
+        let (serial_reader_tx, serial_reader_rx) = mpsc::channel();
+        let serial_reader = thread::spawn(|| {
+            handle_serial_port(sport, serial_reader_tx);
+        });
+        for buf in serial_reader_rx {
+            print!("{}", String::from_utf8_lossy(buf.as_slice()));
+        }
+        serial_reader.join()?;
+    }
+    Ok(())
+}
+
+fn handle_serial_port(mut port: Box<dyn SerialPort>, tx: Sender<Vec<u8>>) {
+    loop {
+        let mut buf = [0; 1024];
+        match port.read(&mut buf) {
+            Ok(n) => {
+                let v = buf[..n].to_vec();
+                match tx.send(v) {
+                    Ok(_) => continue,
+                    Err(e) => {
+                        eprintln!("Error sending data from serial port reader: {}", e);
+                        break;
+                    }
                 }
-                Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {}
-                Err(e) => {
-                    return Err(Error::Io(e));
-                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {}
+            Err(e) => {
+                eprintln!("Reading from serial port failed: {}", e);
+                break;
             }
         }
     }
-    Ok(())
 }
 
 /// Print a list of available serial ports to console
@@ -147,8 +170,4 @@ fn open_serial_port(port: &str, args: &Args) -> Result<Box<dyn SerialPort>> {
         }
     });
     Ok(builder.open()?)
-}
-
-fn handle_serial_bytes(buf: &[u8]) {
-    print!("{}", String::from_utf8_lossy(buf));
 }
