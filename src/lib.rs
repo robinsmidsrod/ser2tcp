@@ -66,29 +66,6 @@ pub fn run(args: ArgsOs) -> Result<()> {
     Ok(())
 }
 
-fn handle_serial_port(mut port: Box<dyn SerialPort>, tx: Sender<Vec<u8>>) {
-    loop {
-        let mut buf = [0; 1024];
-        match port.read(&mut buf) {
-            Ok(n) => {
-                let v = buf[..n].to_vec();
-                match tx.send(v) {
-                    Ok(_) => continue,
-                    Err(e) => {
-                        eprintln!("Error sending data from serial port reader: {}", e);
-                        break;
-                    }
-                }
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {}
-            Err(e) => {
-                eprintln!("Reading from serial port failed: {}", e);
-                break;
-            }
-        }
-    }
-}
-
 /// Print a list of available serial ports to console
 fn list_available_ports() -> Result<()> {
     let ports = serialport::available_ports()?;
@@ -170,4 +147,27 @@ fn open_serial_port(port: &str, args: &Args) -> Result<Box<dyn SerialPort>> {
         }
     });
     Ok(builder.open()?)
+}
+
+fn handle_serial_port(mut port: Box<dyn SerialPort>, tx: Sender<Vec<u8>>) {
+    loop {
+        let mut buf = [0; 1024];
+        match port.read(&mut buf) {
+            Ok(n) => {
+                let v = buf[..n].to_vec();
+                match tx.send(v) {
+                    Ok(_) => continue,
+                    Err(e) => {
+                        eprintln!("Error sending data from serial port reader: {}", e);
+                        break;
+                    }
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {}
+            Err(e) => {
+                eprintln!("Reading from serial port failed: {}", e);
+                break;
+            }
+        }
+    }
 }
