@@ -15,6 +15,7 @@ use serialport::SerialPort;
 use wild::ArgsOs;
 
 mod error;
+type Avb = Arc<Vec<u8>>;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -75,6 +76,7 @@ pub fn run(args: ArgsOs) -> Result<()> {
         });
         // Read data for serial port and dispatch to each TCP stream writer
         for buf in serial_reader_rx {
+            let buf = Arc::new(buf);
             //print!("{}", String::from_utf8_lossy(buf.as_slice()));
             let Ok(mut tcp_write_senders) = tcp_write_senders.lock() else {
                 continue;
@@ -194,7 +196,7 @@ fn handle_serial_port(mut port: Box<dyn SerialPort>, tx: Sender<Vec<u8>>) {
     }
 }
 
-fn handle_tcp_listener(bind_addr: &str, tcp_write_senders: Arc<Mutex<Vec<Sender<Vec<u8>>>>>) {
+fn handle_tcp_listener(bind_addr: &str, tcp_write_senders: Arc<Mutex<Vec<Sender<Avb>>>>) {
     let tcp_listener = TcpListener::bind(bind_addr);
     let Ok(tcp_listener) = tcp_listener else {
         return;
@@ -231,7 +233,7 @@ fn handle_tcp_listener(bind_addr: &str, tcp_write_senders: Arc<Mutex<Vec<Sender<
     }
 }
 
-fn handle_tcp_stream(mut stream: TcpStream, tcp_writer_rx: Receiver<Vec<u8>>) {
+fn handle_tcp_stream(mut stream: TcpStream, tcp_writer_rx: Receiver<Avb>) {
     let Ok(peer_addr) = stream.peer_addr() else {
         return;
     };
