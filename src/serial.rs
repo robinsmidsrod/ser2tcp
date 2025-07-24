@@ -87,6 +87,7 @@ pub(crate) fn open_serial_port(port: &str, args: &Args) -> Result<Box<dyn Serial
     Ok(builder.open()?)
 }
 
+/// Read data from serial port and send it to the serial data receiver channel
 pub(crate) fn handle_serial_port(mut port: Box<dyn SerialPort>, tx: Sender<Vec<u8>>) {
     loop {
         let mut buf = [0; 1024];

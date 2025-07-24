@@ -10,6 +10,9 @@ use std::thread;
 
 use super::Avb;
 
+/// Create TCP listener on specified bind address+port
+///
+/// Create a channel for each connected TCP client and add it to the list of serial data receivers
 pub(crate) fn handle_tcp_listener(
     bind_addr: &str,
     tcp_write_senders: Arc<Mutex<Vec<Sender<Avb>>>>,
@@ -50,6 +53,7 @@ pub(crate) fn handle_tcp_listener(
     }
 }
 
+/// Write received data from the serial reader channel to the TCP stream
 pub(crate) fn handle_tcp_stream(mut stream: TcpStream, tcp_writer_rx: Receiver<Avb>) {
     let Ok(peer_addr) = stream.peer_addr() else {
         return;
